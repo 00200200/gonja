@@ -163,10 +163,8 @@ func MacroNodeToFunc(node *nodes.Macro, r *Renderer) (Macro, error) {
 		// --- Inject caller() if a {% call %} block supplied one ---
 		// The {% call %} control structure writes a callable into a special
 		// per-call slot in the renderer's context before invoking the macro.
-		if caller, ok := r.Environment.Context.Get("__gonja_caller__"); ok && caller != nil {
+		if caller, ok := r.Environment.Context.take("__gonja_caller__"); ok && caller != nil {
 			sub.Environment.Context.Set("caller", caller)
-			// Consume it so nested unrelated macro calls don't see it.
-			r.Environment.Context.Set("__gonja_caller__", nil)
 		}
 
 		err := sub.ExecuteWrapper(node.Wrapper)

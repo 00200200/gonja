@@ -41,6 +41,20 @@ func (ctx *Context) Get(name string) (any, bool) {
 	}
 }
 
+// take consumes the nearest binding without shadowing an inherited value.
+func (ctx *Context) take(name string) (any, bool) {
+	ctx.lock.Lock()
+	value, exists := ctx.data[name]
+	if exists {
+		ctx.data[name] = nil
+	}
+	ctx.lock.Unlock()
+	if !exists && ctx.parent != nil {
+		return ctx.parent.take(name)
+	}
+	return value, exists
+}
+
 func (ctx *Context) Set(name string, value any) {
 	ctx.lock.Lock()
 	ctx.data[name] = value

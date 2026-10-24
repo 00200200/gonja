@@ -2,6 +2,7 @@ package controlStructures
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/pkg/errors"
 
@@ -49,9 +50,14 @@ func (ics *ImportControlStructure) Execute(r *exec.Renderer, tag *nodes.ControlS
 		return fmt.Errorf("unable to load template '%s': %s", filename, err)
 	}
 
+	importedRenderer := exec.NewRenderer(r.Inherit().Environment, io.Discard, r.Config, loader, template)
+	if err := importedRenderer.Execute(); err != nil {
+		return errors.Wrapf(err, "unable to execute imported template '%s'", filename)
+	}
+
 	macros := map[string]exec.Macro{}
 	for name, macro := range template.Macros() {
-		fn, err := exec.MacroNodeToFunc(macro, r)
+		fn, err := exec.MacroNodeToFunc(macro, importedRenderer)
 		if err != nil {
 			return errors.Wrapf(err, `Unable to import macro '%s'`, name)
 		}
@@ -102,10 +108,15 @@ func (fcs *FromImportControlStructure) Execute(r *exec.Renderer, tag *nodes.Cont
 		return fmt.Errorf("unable to load template '%s': %s", filename, err)
 	}
 
+	importedRenderer := exec.NewRenderer(r.Inherit().Environment, io.Discard, r.Config, loader, template)
+	if err := importedRenderer.Execute(); err != nil {
+		return errors.Wrapf(err, "unable to execute imported template '%s'", filename)
+	}
+
 	imported := template.Macros()
 	for alias, name := range fcs.As {
 		node := imported[name]
-		fn, err := exec.MacroNodeToFunc(node, r)
+		fn, err := exec.MacroNodeToFunc(node, importedRenderer)
 		if err != nil {
 			return errors.Wrapf(err, `Unable to import macro '%s'`, name)
 		}
