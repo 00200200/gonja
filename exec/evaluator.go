@@ -13,6 +13,9 @@ import (
 	"github.com/nikolalohinski/gonja/v2/tokens"
 )
 
+// Limit introduced by wangluming.wlm (@ming845378603) in https://github.com/NikolaLohinski/gonja/pull/93.
+const maxStringRepeatBytes = 100 * 1024 * 1024
+
 var typeOfValuePtr = reflect.TypeFor[*Value]()
 
 type ErrInvalidCall error
@@ -139,7 +142,15 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 			return AsValue(left.Float() * right.Float())
 		}
 		if left.IsString() {
-			return AsValue(strings.Repeat(left.String(), right.Integer()))
+			value := left.String()
+			count := right.Integer()
+			if count < 0 {
+				count = 0
+			}
+			if err := checkStringRepeatSize(len(value), count); err != nil {
+				return AsValue(err)
+			}
+			return AsValue(strings.Repeat(value, count))
 		}
 		// Result will be int
 		return AsValue(left.Integer() * right.Integer())
@@ -224,6 +235,14 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 	default:
 		return AsValue(errors.Errorf(`Unknown operator "%s"`, node.Operator.Token))
 	}
+}
+
+func checkStringRepeatSize(length, count int) error {
+	// Divide before multiplying so oversized counts cannot overflow.
+	if length > 0 && count > maxStringRepeatBytes/length {
+		return errors.Errorf("string repeat exceeds limit of %d bytes", maxStringRepeatBytes)
+	}
+	return nil
 }
 
 func (e *Evaluator) evalUnaryExpression(expr *nodes.UnaryExpression) *Value {
